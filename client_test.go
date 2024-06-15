@@ -536,6 +536,24 @@ func TestOptimizeBatchPayload(t *testing.T) {
 				assert.Equal(t, 1, bp.extendedMessages[0].payloadIndex)
 			},
 		},
+		{
+			desc:          "minimize messages sent to s3",
+			clientOptions: []ClientOption{WithBatchMessageSizeThreshold(10000)},
+			messages: []batchMessageMeta{
+				{payloadIndex: 1, msgSize: messageSize{bodySize: 9000}},
+				{payloadIndex: 2, msgSize: messageSize{bodySize: 1900}},
+				{payloadIndex: 3, msgSize: messageSize{bodySize: 1900}},
+				{payloadIndex: 4, msgSize: messageSize{bodySize: 1900}},
+				{payloadIndex: 5, msgSize: messageSize{bodySize: 1900}},
+				{payloadIndex: 6, msgSize: messageSize{bodySize: 1900}},
+			},
+			baseBatchPayload: batchPayload{},
+			checks: func(t *testing.T, bp *batchPayload) {
+				assert.Equal(t, int64(150+1900+1900+1900+1900+1900), bp.batchBytes)
+				assert.Len(t, bp.extendedMessages, 1)
+				assert.Equal(t, 1, bp.extendedMessages[0].payloadIndex)
+			},
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {

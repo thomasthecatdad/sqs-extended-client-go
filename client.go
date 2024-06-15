@@ -428,20 +428,29 @@ func (c *Client) optimizeBatchPayload(bp *batchPayload, messages []batchMessageM
 		s3PointerSize:    bp.s3PointerSize,
 	}, messages[1:])
 
-	// preform the checks against factors provided in the function description
-	if c1.batchBytes <= c.batchMessageSizeThreshold && c2.batchBytes > c.batchMessageSizeThreshold {
-		return c1
-	} else if c2.batchBytes <= c.batchMessageSizeThreshold && c1.batchBytes > c.batchMessageSizeThreshold {
-		return c2
-	} else if c1.batchBytes > c.batchMessageSizeThreshold && c2.batchBytes > c.batchMessageSizeThreshold {
-		// in this case, both payloads suck- attempt to return the best of the worst
-		if c1.batchBytes <= c2.batchBytes {
+	// 1. Always prefer a payload that is under the batchMessageSizeThreshold
+	if c1.batchBytes > c.batchMessageSizeThreshold || c2.batchBytes > c.batchMessageSizeThreshold {
+		// If at least one of the payloads is above the threshold, return the smaller one
+		if c1.batchBytes < c2.batchBytes {
 			return c1
 		}
+
 		return c2
-	} else if len(c2.extendedMessages) > len(c1.extendedMessages) {
-		return c1
-	} else if c1.batchBytes > c2.batchBytes {
+	}
+
+	// 2. Prefer a payload with the LEAST amount of extended messages
+	if len(c1.extendedMessages) != len(c2.extendedMessages) {
+		if len(c1.extendedMessages) < len(c2.extendedMessages) {
+			return c1
+		}
+
+		return c2
+	}
+
+	// 3. Prefer a payload which sends the LEAST amount of data to S3
+	// Since the number of messaghes is equal, whichever sends more data to SQS
+	// will send less data to S3
+	if c1.batchBytes > c2.batchBytes {
 		return c1
 	}
 
